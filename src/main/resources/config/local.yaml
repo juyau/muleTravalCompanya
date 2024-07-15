@@ -2,4 +2,11 @@ http:
   listener:
     port: "9081"
     host: "localhost"
-    path: "/getRoutes"
+    path: "/compA/{serviceType}"
+    
+db:
+  host: "localhost"
+  port: "3306"
+  username: "root"
+  password: "root"
+  database: "traval"

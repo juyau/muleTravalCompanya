@@ -1,11 +1,67 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core"
-	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
-http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
 
 	<flow name="externalcompanyaFlow" doc:id="8672687f-495b-4124-a95b-1d89e5e9eb74" >
-		<http:listener doc:name="Listener" doc:id="507965ee-a9ae-4877-a300-630bddb6d81f" config-ref="HTTP_Listener_config" path="${http.listener.path}"/>
+		<http:listener doc:name="Listener" doc:id="507965ee-a9ae-4877-a300-630bddb6d81f" config-ref="HTTP_Listener_config" path="${http.listener.path}">
+			<http:error-response statusCode="#[vars.statusCode as Number]">
+				<http:body ><![CDATA[#[vars.errorMsg default "critical error"]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<ee:transform doc:name="Transform Message" doc:id="577b0aa8-edf5-4970-980d-f7f3399792b4">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="serviceType"><![CDATA[%dw 2.0
+output application/java
+---
+attributes.uriParams.serviceType]]></ee:set-variable>
+				<ee:set-variable variableName="transactionId" ><![CDATA[%dw 2.0
+output application/java
+---
+attributes.headers.transactionId]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="32bd6254-0ede-4194-9b19-7143dfb15cff" message="Request received external company A for transactionId #[vars.transactionId]"/>
+		<choice doc:name="Choice" doc:id="b5a43258-ad80-417c-8830-98a6b1ffaece" >
+			<when expression='#[vars.serviceType == "routes"] '>
+				<logger level="INFO" doc:name="Logger" doc:id="29c7347f-f493-438c-b8fb-d27e1b997b2e" message="Routes flow called for transactionId #[vars.transactionId]"/>
+				<flow-ref doc:name="Flow Reference" doc:id="a0b189ac-8a52-4bc9-b4f7-7666ce3bb4b9" name="getRoutesFlow"/>
+			</when>
+			<when expression='#[vars.serviceType == "schedules"] '>
+				<logger level="INFO" doc:name="Logger" doc:id="5f511f50-0e40-4cad-8716-72c9b7533ee6" message='Schedules flow called for transactionId #[vars.transactionId]'/>
+				<flow-ref doc:name="Flow Reference" doc:id="9f22cba2-ac2d-4ff9-b72d-7e1264001f28" name="getSchedulesSub_Flow"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="dbc5699d-c7b0-4885-ab75-12ba2b006c9a" message="no serviceType matching for transactionId #[vars.transactionId]"/>
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="Logger" doc:id="3d5fe046-e475-413b-a60d-a7936c1830f8" message="Response sent external company A for transactionId #[vars.transactionId]"/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="ee499602-fb95-4adc-8c9f-dc7fc58d8cf8" >
+				<logger level="INFO" doc:name="Logger" doc:id="68d9d4e2-dc28-4f09-b293-b9b8731110ac" message="Errer occured for transactionId #[vars.transactionId], reson #[error.description] , error type is #[error.errorType]"/>
+				<ee:transform doc:name="Transform Message" doc:id="861e3e8b-a7c7-4c2d-a0ce-fd5c1dee15c8" >
+					<ee:message >
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="statusCode" ><![CDATA[%dw 2.0
+output application/json
+---
+506]]></ee:set-variable>
+						<ee:set-variable variableName="errorMsg" ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"errorCode": "TL0022",
+	"errorMessage": "error from external systems."
+}]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
 	</flow>
 </mule>
